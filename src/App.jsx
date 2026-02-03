@@ -52,7 +52,7 @@ function App() {
       formData.append("file", blob, `scan_${Date.now()}.jpg`);
 
       // 2. Attempt Contact with Python Backend
-      const response = await fetch("http://localhost:8000/analyze", {
+      const response = await fetch(`http://localhost:8000/analyze?material=${encodeURIComponent(wasteType)}`, {
         method: "POST",
         body: formData
       });
