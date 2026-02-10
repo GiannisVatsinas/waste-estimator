@@ -73,6 +73,7 @@ class MaterialWeightDB:
     def get_weight(self, material, object_type='default'):
         """Get average weight for material and object type"""
         if material: material = material.strip().title()
+        if material: material = material.strip().title(); material = {"Plastics": "Plastic", "Papers": "Paper", "Metals": "Metal", "Glass Bottle": "Glass"}.get(material, material)
         if material not in self.weights:
             material = 'Mixed Waste'
         
@@ -88,6 +89,7 @@ class MaterialWeightDB:
     def get_confidence(self, material, object_type='default'):
         """Get confidence based on number of training samples"""
         if material: material = material.strip().title()
+        if material: material = material.strip().title(); material = {"Plastics": "Plastic", "Papers": "Paper", "Metals": "Metal", "Glass Bottle": "Glass"}.get(material, material)
         if material not in self.weights:
             return 50.0
         
@@ -107,6 +109,7 @@ class MaterialWeightDB:
     def update(self, material, object_type, new_weight):
         """Update database with new weight using running average"""
         if material: material = material.strip().title()
+        if material: material = material.strip().title(); material = {"Plastics": "Plastic", "Papers": "Paper", "Metals": "Metal", "Glass Bottle": "Glass"}.get(material, material)
         if material not in self.weights:
             material = 'Mixed Waste'
         
