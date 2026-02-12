@@ -8,3 +8,5 @@ scikit-learn
 torch
 torchvision
 numpy
+roboflow
+python-dotenv

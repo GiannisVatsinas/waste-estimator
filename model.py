@@ -1,66 +1,112 @@
 from ultralytics import YOLO
 import random
 import json
+import os
+from dotenv import load_dotenv
 from feature_extractor import FeatureExtractor
 from predictor import predict_weight
+
+# Load env variables
+load_dotenv()
+ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
 
 # Initialize Feature Extractor
 feature_extractor = FeatureExtractor()
 
-# Load a pretrained YOLOv8 model (small version for better accuracy)
-# YOLOv8s detects 30% more objects than YOLOv8n (13 vs 10 bottles in tests)
+# Initialize Models
+rf_model = None
+local_model = None
+
 try:
-    model = YOLO("yolov8s.pt")
-    print("[Model] Loaded YOLOv8s (Small) for improved accuracy")
+    if ROBOFLOW_API_KEY:
+        print("[Model] Initializing Roboflow Model...")
+        from roboflow import Roboflow
+        rf = Roboflow(api_key=ROBOFLOW_API_KEY)
+        project = rf.workspace("project-kq2no").project("bottles-9je04")
+        rf_model = project.version(1).model
+        print("[Model] Using Roboflow Model: bottles-9je04/1")
+    else:
+        raise Exception("No API Key found")
 except Exception as e:
-    print(f"Error loading YOLO model: {e}")
-    model = None
+    print(f"[Model] Using Local YOLOv8s (Fallback: {e})")
+    try:
+        local_model = YOLO("yolov8s.pt")
+        print("[Model] Loaded YOLOv8s (Small) for improved accuracy")
+    except Exception as ex:
+        print(f"Error loading local YOLO model: {ex}")
 
-def analyze_image(image_path, db=None, user_material=None):
-    if not model:
-        # Fallback if model fails to load
-        return {
-            "weight": round(random.uniform(0.1, 2.5), 2),
-            "confidence": 0.85,
-            "category": "Unknown",
-            "material": "Unknown",
-            "detected_objects": ["Model Error"]
-        }
-
-    # Define classes that are likely hallucinations in a waste context
-    # "teddy bear" often triggers on crumpled plastic/paper textures
+def analyze_image(image_path, db=None, user_material="Plastic"):
+    detected_objects = []   # High confidence
+    low_conf_objects = []   # Low confidence (requires check)
+    confidence_sum = 0
+    
+    # Define thresholds
+    HIGH_CONF_THRESH = 0.25
+    LOW_CONF_THRESH = 0.05
+    
+    # Define classes to block (hallucinations)
     BLOCKED_CLASSES = {
         "teddy bear", "person", "giraffe", "zebra", "horse", "dog", "cat", 
         "backpack", "umbrella", "handbag", "tie", "suitcase", "bed", "toilet"
     }
 
-    # Run detection with VERY lower confidence threshold to catch crumpled bottles
-    results = model(image_path, conf=0.05)
-    
-    # Process results
-    detected_objects = []   # High confidence (standard)
-    low_conf_objects = []   # Low confidence (requires user check)
-    confidence_sum = 0
-    
-    HIGH_CONF_THRESH = 0.25
-    
-    for result in results:
-        for box in result.boxes:
-            class_id = int(box.cls[0])
-            conf = float(box.conf[0])
-            name = model.names[class_id]
+    # 1. Try ROBOFLOW Inference
+    if rf_model:
+        try:
+            # Predict with low confidence (Roboflow returns object, .json() gets dict)
+            resp = rf_model.predict(image_path, confidence=LOW_CONF_THRESH*100, overlap=30).json()
             
-            # Filter out blocked classes (always ignore these)
-            if name in BLOCKED_CLASSES:
-                continue
-            
-            if conf >= HIGH_CONF_THRESH:
-                detected_objects.append(name)
-                confidence_sum += conf
-            elif name == 'bottle':  
-                # Only offer low-confidence fallback for BOTTLES as requested
-                # This avoids suggesting "low confidence dining table" etc.
-                low_conf_objects.append(name)
+            for pred in resp['predictions']:
+                name = pred['class']
+                conf = pred['confidence']
+                
+                if name in BLOCKED_CLASSES: continue
+                
+                # Normalize class names from external datasets
+                if "bottle" in name.lower():
+                    name = "bottle"
+                
+                if conf >= HIGH_CONF_THRESH:
+                    detected_objects.append(name)
+                    confidence_sum += conf
+                elif name == 'bottle':
+                    low_conf_objects.append(name)
+                    
+        except Exception as e:
+            print(f"[Model] Roboflow Inference Failed: {e}")
+            # Ensure local model is ready for fallback
+            if not local_model:
+                 try: 
+                     global local_model
+                     local_model = YOLO('yolov8s.pt')
+                 except: pass
+
+    # 2. Try LOCAL YOLO Inference (Fallback)
+    # Run if Roboflow didn't run OR returned nothing/failed (and we want to try local too?)
+    # For now, if RF is active, we trust it. Only fallback if NO RF model or RF failed/returned nothing?
+    # Actually, if RF returns 0 objects, maybe local model is better? 
+    # Let's stick to: Use RF if loaded. Use Local if RF not loaded.
+    
+    if not rf_model and local_model:
+        results = local_model(image_path, conf=LOW_CONF_THRESH)
+        for result in results:
+            for box in result.boxes:
+                class_id = int(box.cls[0])
+                conf = float(box.conf[0])
+                name = local_model.names[class_id]
+                
+                if name in BLOCKED_CLASSES: continue
+                
+                if conf >= HIGH_CONF_THRESH:
+                    detected_objects.append(name)
+                    confidence_sum += conf
+                elif name == 'bottle':
+                    low_conf_objects.append(name)
+    
+    # 3. Handle Complete Failure
+    if not detected_objects and not low_conf_objects:
+        # If both failed, return empty or error
+        pass # Will result in count=0 below
                 
     # Use only HIGH CONF object count for default weight estimation
     # User can add low conf items interacting with Frontend
