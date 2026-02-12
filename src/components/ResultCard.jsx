@@ -5,9 +5,78 @@ const ResultCard = ({ result, onReset, onSave, image, categories }) => {
   const [actualWeight, setActualWeight] = useState(result.weight);
   const [selectedCategory, setSelectedCategory] = useState(result.category || 'Mixed Waste');
   const [isSaved, setIsSaved] = useState(false);
+  const [items, setItems] = useState([]);
 
   // Fallback if categories prop is missing
   const categoryOptions = categories || ['Mixed Waste', 'Plastic', 'Paper', 'Glass', 'Metal', 'Organic'];
+
+  // Initialize items from result
+  useEffect(() => {
+    if (!result) return;
+
+    const newItems = [];
+
+    // 1. Process High Confidence Objects (Standard)
+    if (result.detected_objects) {
+      const counts = {};
+      result.detected_objects.forEach(obj => {
+        counts[obj] = (counts[obj] || 0) + 1;
+      });
+
+      Object.keys(counts).forEach(name => {
+        newItems.push({
+          id: `high-${name}`,
+          name: name,
+          count: counts[name],
+          isLowConf: false,
+          checked: true // Default: Checked
+        });
+      });
+    }
+
+    // 2. Process Low Confidence Objects (User Verification Needed)
+    if (result.low_conf_objects) {
+      const counts = {};
+      result.low_conf_objects.forEach(obj => {
+        counts[obj] = (counts[obj] || 0) + 1;
+      });
+
+      Object.keys(counts).forEach(name => {
+        newItems.push({
+          id: `low-${name}`,
+          name: name,
+          count: counts[name],
+          isLowConf: true,
+          checked: false // Default: Unchecked
+        });
+      });
+    }
+
+    // Sort: High conf first, then by count
+    newItems.sort((a, b) => {
+      if (a.isLowConf !== b.isLowConf) return a.isLowConf ? 1 : -1;
+      return b.count - a.count;
+    });
+
+    setItems(newItems);
+  }, [result]);
+
+  // Recalculate weight when selection changes
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    const activeCount = items.reduce((sum, item) => item.checked ? sum + item.count : sum, 0);
+    const avg = result.avg_weight_used || 0;
+    const newWeight = (activeCount * avg).toFixed(3);
+
+    setActualWeight(newWeight);
+  }, [items, result.avg_weight_used]);
+
+  const toggleItem = (name) => {
+    setItems(prev => prev.map(item =>
+      item.name === name ? { ...item, checked: !item.checked } : item
+    ));
+  };
 
   const handleSave = () => {
     try {
@@ -90,6 +159,41 @@ const ResultCard = ({ result, onReset, onSave, image, categories }) => {
             <Scale size={20} className="text-secondary" />
             <span>{result.weight} kg</span>
           </div>
+        </div>
+
+        <div className="calculation-details">
+          <h4>Detected Objects (Select to Count)</h4>
+          <div className="items-list">
+            {items.map(item => (
+              <div
+                key={item.id}
+                className={`item-row ${item.checked ? 'checked' : 'unchecked'} ${item.isLowConf ? 'low-conf-row' : ''}`}
+                onClick={() => toggleItem(item.name)}
+              >
+                <div className="checkbox-wrapper">
+                  <div className={`custom-checkbox ${item.checked ? 'checked' : ''}`}>
+                    {item.checked && <span className="check-mark">✓</span>}
+                  </div>
+                </div>
+                <div className="item-info">
+                  <span className="item-name">
+                    {item.count} {item.name}{item.count > 1 ? 's' : ''}
+                    {item.isLowConf && <span className="low-conf-badge">Low Confidence</span>}
+                  </span>
+                  {!item.isWaste && !item.isLowConf && <span className="ignored-badge">Ignored</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="formula-row">
+            <span>Estimate:</span>
+            <strong>{items.filter(i => i.checked).reduce((s, i) => s + i.count, 0)} items × {result.avg_weight_used} kg</strong>
+          </div>
+
+          <p className="correction-hint">
+            Confirming will save this weight as the correct value.
+          </p>
         </div>
 
         <div className="manual-input-section">
@@ -207,6 +311,134 @@ const ResultCard = ({ result, onReset, onSave, image, categories }) => {
             font-weight: 700;
             color: var(--text-primary);
             font-size: 1.1rem;
+        }
+
+        /* NEW CALCULATION DETAILS STYLES */
+        .calculation-details {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+        
+        .calculation-details h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.95rem;
+            color: #166534;
+        }
+        
+        .items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .item-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: white;
+            border: 1px solid #bbf7d0;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .item-row:hover {
+            background: #f0fdf4;
+            border-color: #86efac;
+        }
+        
+        .item-row.unchecked {
+            background: #f9fafb;
+            border-color: #e5e7eb;
+            color: #9ca3af;
+        }
+        
+        .custom-checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #cbd5e1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            transition: all 0.2s;
+        }
+        
+        .custom-checkbox.checked {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+        
+        .check-mark {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .item-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex: 1;
+        }
+        
+        .ignored-badge {
+            font-size: 0.7rem;
+            background: #e2e8f0;
+            color: #64748b;
+            padding: 0.1rem 0.4rem;
+            border-radius: 999px;
+            margin-left: 0.5rem;
+        }
+
+        .low-conf-badge {
+            font-size: 0.65rem;
+            background: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #fed7aa;
+            padding: 0.1rem 0.4rem;
+            border-radius: 999px;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .item-row.low-conf-row {
+            border-style: dashed;
+            background: #fffaf0;
+        }
+        
+        .item-row.low-conf-row:hover {
+            background: #fff7ed;
+            border-color: #fdba74;
+        }
+        
+        .formula-row {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.6);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            color: #166534;
+        }
+
+        .correction-hint {
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+            color: #15803d;
+            font-style: italic;
+            border-top: 1px dashed #86efac;
+            padding-top: 0.5rem;
         }
 
         .manual-input-section {

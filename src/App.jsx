@@ -62,8 +62,7 @@ function App() {
       const data = await response.json();
 
       setResult({
-        weight: data.weight,
-        confidence: data.confidence,
+        ...data, // Pass all backend fields (description, avg_weight_used, etc.)
         // Override backend category with User Selected Waste Type (can be corrected later)
         category: wasteType,
         material: wasteType

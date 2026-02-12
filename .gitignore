@@ -1,3 +1,13 @@
-node_modules
-node_modules
-node_modules
+node_modules/
+__pycache__/
+*.pyc
+*.pt
+uploads/
+debug_*.png
+test_image-analyzed.png
+test_image-yolov8s.png
+*.DS_Store
+.env
+waste.db
+*.JPG
+!test_image.JPG
