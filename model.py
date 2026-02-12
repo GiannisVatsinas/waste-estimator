@@ -9,6 +9,9 @@ from predictor import predict_weight
 # Load env variables
 load_dotenv()
 ROBOFLOW_API_KEY = os.getenv("ROBOFLOW_API_KEY")
+RF_WORKSPACE = os.getenv("ROBOFLOW_WORKSPACE", "project-kq2no")
+RF_PROJECT = os.getenv("ROBOFLOW_PROJECT", "bottles-9je04")
+RF_VERSION = int(os.getenv("ROBOFLOW_VERSION", 1))
 
 # Initialize Feature Extractor
 feature_extractor = FeatureExtractor()
@@ -22,9 +25,9 @@ try:
         print("[Model] Initializing Roboflow Model...")
         from roboflow import Roboflow
         rf = Roboflow(api_key=ROBOFLOW_API_KEY)
-        project = rf.workspace("project-kq2no").project("bottles-9je04")
-        rf_model = project.version(1).model
-        print("[Model] Using Roboflow Model: bottles-9je04/1")
+        project = rf.workspace(RF_WORKSPACE).project(RF_PROJECT)
+        rf_model = project.version(RF_VERSION).model
+        print(f"[Model] Using Roboflow Model: {RF_WORKSPACE}/{RF_PROJECT}/{RF_VERSION}")
     else:
         raise Exception("No API Key found")
 except Exception as e:
