@@ -31,7 +31,10 @@ def analyze_image(image_path, db=None, user_material=None):
     # "teddy bear" often triggers on crumpled plastic/paper textures
     BLOCKED_CLASSES = {
         "teddy bear", "person", "giraffe", "zebra", "horse", "dog", "cat", 
-        "backpack", "umbrella", "handbag", "tie", "suitcase", "bed", "toilet"
+        "backpack", "umbrella", "handbag", "tie", "suitcase", "bed", "toilet",
+        "refrigerator", "oven", "microwave", "toaster", "sink", "dining table",
+        "chair", "couch", "tv", "laptop", "keyboard", "mouse", "remote",
+        "cell phone", "book", "clock", "vase", "scissors", "hair drier", "toothbrush"
     }
 
     # Run detection with VERY lower confidence threshold to catch crumpled bottles
@@ -160,12 +163,11 @@ def analyze_image(image_path, db=None, user_material=None):
         "category": category,
         "material": material,
         "detected_objects": detected_objects if detected_objects else ["No objects detected"],
-        "low_conf_objects": low_conf_objects, # List of low confidence bottles for user review
-        "waste_objects": detected_objects, # Only high conf are counted by default
+        "low_conf_objects": [],  # Hidden from user - low confidence items not shown
+        "waste_objects": detected_objects,
         "object_count": count, 
         "embedding": embedding,
         "prediction_method": prediction_method,
-        # New fields for Frontend
         "description": description,
         "avg_weight_used": round(avg_weight_per_item, 3) if avg_weight_per_item else 0.0
     }

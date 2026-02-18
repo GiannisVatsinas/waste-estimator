@@ -78,6 +78,14 @@ const ResultCard = ({ result, onReset, onSave, image, categories }) => {
     ));
   };
 
+  const updateCount = (name, delta) => {
+    setItems(prev => prev.map(item =>
+      item.name === name
+        ? { ...item, count: Math.max(1, item.count + delta) }
+        : item
+    ));
+  };
+
   const handleSave = () => {
     try {
       // Fix comma issue if user enters "0,020"
@@ -168,19 +176,22 @@ const ResultCard = ({ result, onReset, onSave, image, categories }) => {
               <div
                 key={item.id}
                 className={`item-row ${item.checked ? 'checked' : 'unchecked'} ${item.isLowConf ? 'low-conf-row' : ''}`}
-                onClick={() => toggleItem(item.name)}
               >
-                <div className="checkbox-wrapper">
+                <div className="checkbox-wrapper" onClick={() => toggleItem(item.name)}>
                   <div className={`custom-checkbox ${item.checked ? 'checked' : ''}`}>
                     {item.checked && <span className="check-mark">✓</span>}
                   </div>
                 </div>
                 <div className="item-info">
                   <span className="item-name">
-                    {item.count} {item.name}{item.count > 1 ? 's' : ''}
+                    {item.name}
                     {item.isLowConf && <span className="low-conf-badge">Low Confidence</span>}
                   </span>
-                  {!item.isWaste && !item.isLowConf && <span className="ignored-badge">Ignored</span>}
+                </div>
+                <div className="count-controls">
+                  <button className="count-btn" onClick={(e) => { e.stopPropagation(); updateCount(item.name, -1); }}>−</button>
+                  <span className="count-value">{item.count}</span>
+                  <button className="count-btn" onClick={(e) => { e.stopPropagation(); updateCount(item.name, +1); }}>+</button>
                 </div>
               </div>
             ))}
@@ -391,13 +402,42 @@ const ResultCard = ({ result, onReset, onSave, image, categories }) => {
             flex: 1;
         }
         
-        .ignored-badge {
-            font-size: 0.7rem;
-            background: #e2e8f0;
-            color: #64748b;
-            padding: 0.1rem 0.4rem;
-            border-radius: 999px;
-            margin-left: 0.5rem;
+        .count-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-left: auto;
+        }
+
+        .count-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 1.5px solid #cbd5e1;
+            background: white;
+            color: #334155;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            padding: 0;
+        }
+
+        .count-btn:hover {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+
+        .count-value {
+            font-weight: 700;
+            font-size: 0.95rem;
+            min-width: 20px;
+            text-align: center;
+            color: #1e293b;
         }
 
         .low-conf-badge {
