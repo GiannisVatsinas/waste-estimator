@@ -72,44 +72,11 @@ def update_weight(scan_id: int, actual_weight: float, category: str = None, db: 
     scan.actual_weight = actual_weight
     if category:
         scan.category = category
-        scan.material = category
+        # Also update material to match category so future AI lookups for this material type use this weight
+        scan.material = category 
         
     db.commit()
-    
-    # NEW: Update neural network with user correction (Online Learning)
-    try:
-        from model import update_model_with_correction
-        
-        image_path = f"{UPLOAD_DIR}/{scan.filename}"
-        if os.path.exists(image_path):
-            loss = update_model_with_correction(
-                image_path=image_path,
-                material=scan.material,
-                actual_weight=actual_weight
-            )
-            
-            if loss is not None:
-                return {
-                    "message": "Weight updated and model retrained",
-                    "new_weight": actual_weight,
-                    "new_category": category,
-                    "training_loss": round(loss, 4)
-                }
-        
-        return {
-            "message": "Weight updated (image not found for training)",
-            "new_weight": actual_weight,
-            "new_category": category
-        }
-    
-    except Exception as e:
-        print(f"Failed to update model: {e}")
-        return {
-            "message": "Weight updated (model training failed)",
-            "new_weight": actual_weight,
-            "new_category": category,
-            "error": str(e)
-        }
+    return {"message": "Weight and Category updated successfully", "new_weight": actual_weight, "new_category": category}
 
 @app.get("/history")
 def get_history(db: Session = Depends(get_db)):
@@ -119,13 +86,3 @@ def get_history(db: Session = Depends(get_db)):
 @app.get("/")
 def read_root():
     return {"status": "WasteVisionAI Backend Running"}
-
-
-@app.get("/model/stats")
-def get_model_statistics():
-    """Get neural network training statistics"""
-    try:
-        from model import get_model_stats
-        return get_model_stats()
-    except Exception as e:
-        return {"error": str(e)}
