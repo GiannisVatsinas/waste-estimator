@@ -52,10 +52,14 @@ function App() {
       formData.append("file", blob, `scan_${Date.now()}.jpg`);
 
       // 2. Attempt Contact with Python Backend
-      const response = await fetch(`http://localhost:8000/analyze?material=${encodeURIComponent(wasteType)}`, {
+      // 2. Attempt Contact with Python Backend
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_URL}/analyze?material=${encodeURIComponent(wasteType)}`, {
         method: "POST",
         body: formData
       });
+
+
 
       if (!response.ok) throw new Error("Backend unavailable");
 
