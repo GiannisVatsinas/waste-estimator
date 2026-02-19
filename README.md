@@ -89,6 +89,20 @@ npm run dev
 ```
 The frontend will run on `http://localhost:5173`.
 
+
+### ⚙️ Configuration
+
+The frontend uses an environment variable to connect to the backend:
+
+-   `VITE_API_URL`: The URL of the backend API.
+    -   **Default**: `http://localhost:8000`
+    -   **Production**: Set this to your production backend URL (e.g., `https://huggingface.co/...`).
+
+To change this, create a `.env` file in the root directory:
+```env
+VITE_API_URL=http://your-custom-api-url.com
+```
+
 ### 🐳 Docker Deployment
 
 Build and run the application using Docker:
