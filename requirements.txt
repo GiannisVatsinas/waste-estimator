@@ -8,3 +8,4 @@ scikit-learn
 torch
 torchvision
 numpy
+opencv-python-headless

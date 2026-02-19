@@ -12,6 +12,7 @@ init_db()
 
 app = FastAPI()
 
+
 # Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
